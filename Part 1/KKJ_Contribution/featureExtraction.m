@@ -51,6 +51,13 @@ if doFeatureExtraction
         fT.Properties.VariableNames{i} = ['chroma_vector_' num2str(i-24)];
     end
     
+    % Add time to the table
+    t = (step : step : length(signal)/fs-step)';  % Calculate time vector
+    fT.TimeStep = t;  % Add time vector to table
+    fT = [fT(:, end) fT(:, 1:end-1)]; % Bring time column to be first
+    
+    
+    % Save table to file
     save('FeatureTable.mat','fT')
     
 end
