@@ -1,19 +1,6 @@
-
-
 from tensorflow import keras
-
-from tensorflow.keras.applications import InceptionV3
-from tensorflow.keras.models import load_model
-
-from tensorflow.keras.preprocessing import image
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout, BatchNormalization
-from tensorflow.keras import metrics
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-
-import tensorflow as tf
+from tensorflow.keras.layers import Dense
 from tensorflow.keras.models import Sequential
-
 import os
 import numpy as np
 import pandas as pd
@@ -33,7 +20,13 @@ selected_features = [0, 5, 8]
 data_frame = pd.read_csv("voices.csv")
 
 # Extract features
+
 data_x = data_frame.values[:, selected_features].astype('float32')
+
+# Normalize
+for i in range(len(selected_features)):
+    data_x[:, i] = (data_x[:, i]-np.mean(data_x[:, i]))/np.std(data_x[:, i])
+
 
 # Extract labels as ones and zeros
 data_y = pd.Categorical(data_frame.values[:, -1]).codes
@@ -81,8 +74,6 @@ model.compile(loss='binary_crossentropy',
 
 # Print summary of model
 model.summary()
-
-
 
 # Set main training directory
 run_logdir = get_run_logdir(root_dir)
