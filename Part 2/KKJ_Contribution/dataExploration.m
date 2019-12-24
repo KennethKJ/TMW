@@ -1,10 +1,28 @@
 
 clear all
 
-% Load data from file
-load voicesTable
+%% Switches for analyses to perform
+
+% Plot female vs male feature histograms
+do_1D_histograms = 0;
+
+% Calculate and plot divergence
+doDivergence = 0;
+
+% Calculate and plot divergence
+doCorrelations = 0;
+
+% Calculate and plot divergence
+doDivCorrOpti = 0;
+
+% Scatter plots of selected feature combos
+do_scatter = 1;
+
 
 %% Initial settings and processing
+
+% Load data from file
+load voicesTable
 
 % Rename table to T for conveinience
 T = voices;
@@ -36,18 +54,18 @@ idx_sub_sample = randperm(N);
 groups = {'female','male'}; % group labels
 cols = 'rb'; % group colors
 
+% Set index of variable to log transform
+is_log_idx = [7 8 14 15 17 18];
+logVars = Vars(is_log_idx);
+
 
 %% Simple 1D inspection
 
-do_1D_histograms = 1;
+
 if do_1D_histograms
     
     % Clear figure
     figure(100); clf; hold on
-    
-    is_log_idx = [7 8 14 15 17 18];
-    
-    logVars = Vars(is_log_idx);
     
     % Initialize criterion measures variable
     criterion = nan(numVars, 4); %
@@ -92,7 +110,6 @@ if do_1D_histograms
                 ax.YColor = 'r';
 
             end
-            
             
         end
         
@@ -418,7 +435,7 @@ end
 
 %% Calculate and plot divergence
 
-doDivergence = 1;
+
 
 D = nan(numVars, numVars);
 if doDivergence
@@ -435,7 +452,6 @@ end
 
 %% Calculate and plot correlations
 
-doCorrelations = 1;
 
 if doCorrelations
     
@@ -453,7 +469,6 @@ end
 
 %% Calculate and plot overall optimal feature combinations
 
-doDivCorrOpti = 1;
 
 if doDivCorrOpti
 
@@ -472,58 +487,97 @@ if doDivCorrOpti
 end
 
 
-% Below is dormant for now
-% 
-% % Clear figure
-% figure(100); clf; hold on
-% 
-% do_scatter = 0;
-% if do_scatter
-%     
-%     Vars = sensitivitySort(T);
-%     
-%     % Loop through all variable and plot malevs female histograms
-%     for i = 1 : length(Vars)-1
-%         
-%         
-%         %% Data retrieval
-%         
-%         % Get male and female data from table
-%         male_v1 = T.(Vars{i})(T.label == 'male');
-%         male_v2 = T.(Vars{i+1})(T.label == 'male');
-%         
-%         female_v1 = T.(Vars{i})(T.label == 'female');
-%         female_v2 = T.(Vars{i+1})(T.label == 'female');
-%         
-%         
-%         %% Plotting
-%         
-%         % plotting histograms
-%         subplot(1,2,1); cla; hold on
-%         scatter(male_v1, male_v2,'bx')
-%         scatter(female_v1, female_v2,'ro')
-%         
-%         % Update figure labels etc
-%         legend({'Male','Female'}); grid on; box on
-%         xlabel(Vars{i})
-%         ylabel(Vars{i+1})
-%         
-%         subplot(1,2,2); cla; hold on
-%         histogram2(male_v1, male_v2,50,'Normalization','probability','DisplayStyle','tile','FaceColor','flat')
-%         histogram2(female_v1, female_v2,50,'Normalization','probability','DisplayStyle','tile','FaceColor','flat')
-%         
-%         % Update figure labels etc
-%         legend; grid on; box on
-%         xlabel(Vars{i})
-%         ylabel(Vars{i+1})
-%         
-%         
-%     end
-% end
-% 
-% disp('DONE!')
-% 
-% sorted = sensitivitySort(T);
+
+%% Scatter plots of selected features
+
+if do_scatter
+    
+    selectVars = {'meanfun','IQR','spent'};
+    symb = 'ox';
+    
+    figure(300); clf;
+    
+    count = 0;
+    % Loop through all variable and plot malevs female histograms
+    for i = 1 : length(selectVars)
+        
+        for j = 1 : length(selectVars)
+            
+            if j <= i
+                continue
+            end
+            
+            count = count + 1;
+            
+            
+            % Initialize data variable
+            data = nan(N,2,2);
+            
+            for k = 1 : length(groups) % female and male
+                
+                % Get data from table
+                data(:, i, k) = T.(selectVars{i})(T.label == groups{k});
+                data(:, j, k) = T.(selectVars{j})(T.label == groups{k});
+                
+                if strcmpi(selectVars{i},'maxfun') % i == 15
+                    
+                    % Flip data
+                    data(:,k) = 1./data(:,k);
+                    
+                end
+                
+                % Apply transform if necessary
+                if ismember(Vars{i}, logVars)
+                    
+                    idx_zero = data(:,j) == 0;
+                    if ~isempty(idx_zero) && sum(idx_zero) > 0
+                        data(idx_zero,j) = eps; % remove zeros
+                    end
+                    data(:,j) = log2(data(:,j));
+                    ax.GridColor = 'r';
+                    ax.XColor = 'r';
+                    ax.YColor = 'r';
+                    
+                end
+            end
+            
+            % Plotting
+            
+            % Clear axes
+            subplot(2,length(selectVars),count);cla; hold on
+            subplot(2,length(selectVars),count+length(selectVars));cla; hold on
+            
+            for k = 1 : 2
+                
+                subplot(2,length(selectVars),count);
+                
+                % Update figure labels etc
+                xlabel(selectVars{i})
+                ylabel(selectVars{j})
+                axis square; box on; grid on;
+                
+                scatter(data(:,i,k),data(:,j,k),[cols(k) symb(k)])
+                subplot(2,length(selectVars),count+length(selectVars));
+                histogram2(data(:,i,k), data(:,j,k), 50, ...
+                    ...'Color', cols(j), ...
+                    'Normalization','probability', ...
+                    'DisplayStyle','tile', ...
+                    'FaceColor','flat')
+                
+                
+                % Update figure labels etc
+                
+                xlabel(selectVars{i})
+                ylabel(selectVars{j})
+                axis square; box on; grid on;
+                
+            end
+        end
+    end
+end
+
+disp('DONE!')
+
 
 
 %% Funtions
