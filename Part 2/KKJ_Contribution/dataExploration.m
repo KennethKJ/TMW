@@ -1,19 +1,21 @@
 
 clear all
 
+save_path = 'C:\Users\Research\Google Drive\TMW Working dir\Figures\';
+
 %% Switches for analyses to perform
 
 % Plot female vs male feature histograms
-do_1D_histograms = 0;
+do_1D_histograms = 1;
 
 % Calculate and plot divergence
-doDivergence = 0;
+doDivergence = 1;
 
 % Calculate and plot divergence
-doCorrelations = 0;
+doCorrelations = 1;
 
 % Calculate and plot divergence
-doDivCorrOpti = 0;
+doDivCorrOpti = 1;
 
 % Scatter plots of selected feature combos
 do_scatter = 1;
@@ -47,7 +49,7 @@ numVars = length(Vars);
 % Set statistical test parameters
 alpha = 0.05;
 alpha_bonf = alpha; %/numVars;
-num_sub_samples = 50;
+num_sub_samples = 25;
 idx_sub_sample = randperm(N);
         
 % Define group labels and colors for plotting
@@ -57,6 +59,10 @@ cols = 'rb'; % group colors
 % Set index of variable to log transform
 is_log_idx = [7 8 14 15 17 18];
 logVars = Vars(is_log_idx);
+
+% Parameters used for plotting below
+numRows = 5;
+numColumns = 4;
 
 
 %% Simple 1D inspection
@@ -68,6 +74,8 @@ if do_1D_histograms
     figure(100); clf; hold on
     
     % Initialize criterion measures variable
+    % Contains in order: p-values, num samples necessary at 80% power,
+    % Divergence, and a bool to indicate if distributions are normal
     criterion = nan(numVars, 4); %
     
     % Loop through all variable and plot malevs female histograms
@@ -76,7 +84,7 @@ if do_1D_histograms
         disp(['Processing ' Vars{i}])
         
         % Prep figure subplot
-        ax = subplot(4,5,i);
+        ax = subplot(numRows, numColumns,i);
         % Clear axis
         cla; hold on
         
@@ -121,7 +129,12 @@ if do_1D_histograms
         
         
         %% Statistical significance
-
+        
+        % Calculate number of samples necessary to determine a statistical
+        % difference at alpha = 0.05 and power = 0.80
+        nout = sampsizepwr('t',[mean(data(:,1)) std(data(:,1))], mean(data(:,2)),0.80);
+        criterion(i,2) = nout;
+        
         idx_sub_sample = idx_sub_sample(1:num_sub_samples);
         
         % Calculate mean to median ratio as crude normality test
@@ -156,13 +169,6 @@ if do_1D_histograms
         rounding_factor = 10000;
         p = round(p*rounding_factor)/rounding_factor;
         
-        % Sensitivity
-        d_prime = abs(mean(data(:,1)) - mean(data(:,2)))/sqrt(0.5*(std(data(:,1)) + std(data(:,2))));
-        criterion(i,2) = d_prime; % Copy to criterion variable
-
-        % Rounding fpr plotting purposes
-        d_prime  = round(d_prime *rounding_factor)/rounding_factor;
-        
         % Divergence
         div = divergence(data(:,1)', data(:,2)');
         criterion(i,3) = div; % Copy to criterion variable
@@ -173,8 +179,7 @@ if do_1D_histograms
         ylabel('Probability')
         grid on; box on
         ylim([0 0.2])
-        
-        
+%         axis square
         % Print test reults onto figure
         if is_normal
             testID = 'TT';
@@ -191,15 +196,14 @@ if do_1D_histograms
         % Define position of text and write to plot
         x = ax.XLim(1) + 0.1*(ax.XLim(2)-ax.XLim(1));
         y = ax.YLim(1) + 0.9*(ax.YLim(2)-ax.YLim(1));
-        text(x, y,[testID ': p = ' num2str(p)],'FontSize',9, 'Color', c_sign)
+        text(x, y,[testID ': p = ' num2str(round(p*100)) '% (' num2str(criterion(i,2)) ')'],'FontSize',9, 'Color', c_sign)
         y = y - 0.15*y;
-        text(x, y,['d'' = ' num2str(d_prime)],'FontSize',9)
-        y = y - 0.15*y;
-        text(x, y,['div = ' num2str(div)],'FontSize',9)
+        text(x, y,['Div = ' num2str(div)],'FontSize',9)
         
     end
     
-    
+    % Save figure to file
+    saveas(100, [save_path 'Histograms.png'])
     
     %% Repeat 1D histoframs after sorting according to divergence
     
@@ -214,7 +218,7 @@ if do_1D_histograms
     for i = 1 : length(Vars)
         
         % Prep figure subplot
-        ax = subplot(4,5,i);
+        ax = subplot(numRows, numColumns,i);
         % Clear axis
         cla; hold on
         
@@ -246,8 +250,6 @@ if do_1D_histograms
                 ax.YColor = 'r';
 
             end
-            
-            
         end
         
         bins = linspace(min(data(:)), max(data(:)), 50);  % Calculate bins for histograms
@@ -266,10 +268,6 @@ if do_1D_histograms
         rounding_factor = 10000;
         p = round(p*rounding_factor)/rounding_factor;
         
-        % Sensitivity
-        d_prime = criterion(i,2);
-        d_prime  = round(d_prime *rounding_factor)/rounding_factor;
-        
         % Divergence
         div = criterion(i,3);
         div  = round(div *rounding_factor)/rounding_factor;
@@ -278,10 +276,10 @@ if do_1D_histograms
         xlabel(Vars{i})
         ylabel('Probability')
         grid on; box on
+%         axis square
         
         ylim([0 max(0.2, max([H(1).Values H(2).Values])*1.05)])
-        
-        
+                
         % Print test reults onto figure
         is_normal = criterion(i,4);
         if is_normal
@@ -298,22 +296,21 @@ if do_1D_histograms
         
         x = ax.XLim(1) + 0.1*(ax.XLim(2)-ax.XLim(1));
         y = ax.YLim(1) + 0.9*(ax.YLim(2)-ax.YLim(1));
-        text(x, y,[testID ': p = ' num2str(p)],'FontSize',9, 'Color', c_sign)
+        text(x, y,[testID ': p = ' num2str(round(p*100)) '% (' num2str(criterion(i,2)) ')'],'FontSize',9, 'Color', c_sign)
         y = y - 0.15*y;
-        text(x, y,['d'' = ' num2str(d_prime)],'FontSize',9)
-        y = y - 0.15*y;
-        text(x, y,['div = ' num2str(div)],'FontSize',9)
+        text(x, y,['Div = ' num2str(div)],'FontSize',9)
         
     end
     
-    
+    % Save figure to file
+    saveas(101, [save_path 'Histograms_sorted.png'])    
     
     %% Repeat after removing all non-significant and low divergence features
     
     figure(102);clf;
     
     % Find non-significant features
-    did_not_make_it = criterion(:,1) > alpha_bonf | criterion(:,3) < 2;
+    did_not_make_it = criterion(:,2) >= num_sub_samples | criterion(:,3) < 2;
     
     % Remove non-significant features and criterion values
     Vars(did_not_make_it) = [];
@@ -322,10 +319,8 @@ if do_1D_histograms
 
     % Prep figure subplot
     if numVars <= 5
-        numRows = 1;
-    elseif numVars <= 10
         numRows = 2;
-    elseif numVars <= 5
+    elseif numVars <= 10
         numRows = 3;
     else
         numRows = 4;
@@ -337,7 +332,7 @@ if do_1D_histograms
     for i = 1 : length(Vars)
         
  
-        ax = subplot(numRows,5,i);
+        ax = subplot(numRows,3,i);
 
         % Clear axis
         cla; hold on
@@ -405,7 +400,6 @@ if do_1D_histograms
         
         ylim([0 max(0.2, max([H(1).Values H(2).Values])*1.05)])
         
-        
         % Print test reults onto figure
         is_normal = criterion(i,4);
         if is_normal
@@ -422,20 +416,22 @@ if do_1D_histograms
         
         x = ax.XLim(1) + 0.1*(ax.XLim(2)-ax.XLim(1));
         y = ax.YLim(1) + 0.9*(ax.YLim(2)-ax.YLim(1));
-        text(x, y,[testID ': p = ' num2str(p)],'FontSize',9, 'Color', c_sign)
-        y = y - 0.15*y;
-        text(x, y,['d'' = ' num2str(d_prime)],'FontSize',9)
-        y = y - 0.15*y;
-        text(x, y,['div = ' num2str(div)],'FontSize',9)
+        text(x, y,[testID ': p = ' num2str(round(p*100)) '% (' num2str(criterion(i,2)) ')'],'FontSize',14, 'Color', c_sign)
+        y = y - 0.1*y;
+        text(x, y,['Div = ' num2str(div)],'FontSize',14)
+        
+        set(ax,'FontSize',16)
+        
+        axis square
         
     end    
     
-    
+    % Save figure to file
+    saveas(102, [save_path 'Histograms_selected.png'])    
 end
 
+
 %% Calculate and plot divergence
-
-
 
 D = nan(numVars, numVars);
 if doDivergence
@@ -448,10 +444,12 @@ if doDivergence
     
     plotMatrix(D, Vars, 200, 'Divergence', true);
     
+    % Save figure to file
+    saveas(200, [save_path 'Divergence.png'])    
 end
 
-%% Calculate and plot correlations
 
+%% Calculate and plot correlations
 
 if doCorrelations
     
@@ -462,8 +460,10 @@ if doCorrelations
     R = abs(R); % Take absolute values since we don't care about the direction
     
     % Plot results
-    [~, ax] = plotMatrix(R, Vars, 201, 'Anti-correlation');
+    [~, ax] = plotMatrix(R, Vars, 201, 'Correlations');
     
+    % Save figure to file
+    saveas(201, [save_path 'Correlation.png'])      
 end
 
 
@@ -483,6 +483,9 @@ if doDivCorrOpti
     
     % Plot results
     plotMatrix(M, Vars, 203, 'Optimal Divergence-Correlation combo');
+    
+    % Save figure to file
+    saveas(203, [save_path 'Optimal Divergence-Correlation combo.png'])      
     
 end
 
@@ -574,6 +577,10 @@ if do_scatter
             end
         end
     end
+    
+    
+    % Save figure to file
+    saveas(300, [save_path 'Scatter.png'])      
 end
 
 disp('DONE!')
