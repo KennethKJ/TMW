@@ -15,6 +15,7 @@ def get_run_logdir(root_dir_fn):
     return full_path
 
 selected_features = ['meanfun', 'IQR', 'sp.ent']
+selected_features = ['IQR']
 
 # Import data
 data_frame = pd.read_csv("voices.csv")
@@ -23,7 +24,8 @@ data_frame = pd.read_csv("voices.csv")
 df_x = data_frame[selected_features]
 data_x = df_x.values.astype('float32')
 
-do_feature_crossings = True
+# Apply feature crossings
+do_feature_crossings = False
 
 if do_feature_crossings:
     num_features = len(selected_features)
@@ -31,23 +33,19 @@ if do_feature_crossings:
     i1 = 0
     i2 = 0
     while i1 < num_features-1:
-
         i2 += 1
-
         data_x = np.concatenate((data_x, np.expand_dims(data_x[:, i1] * data_x[:, i2], axis=1)), axis=1)
 
         if i2 == num_features-1:
             i1 += 1
             i2 = i1
 
-
 # Get or update the number of features
 num_features = data_x.shape[1]
 
-# Normalize
+# Normalize faetures
 for i in range(num_features):
     data_x[:, i] = (data_x[:, i]-np.mean(data_x[:, i]))/np.std(data_x[:, i])
-
 
 # Extract labels as ones and zeros
 data_y = pd.Categorical(data_frame.values[:, -1]).codes
